@@ -1,6 +1,20 @@
 ## !!!Be aware of scam!!! The sites like https :// fermata-auto . com  are 100% scam. This app is free and opensource!
 
 
+## Youssef Auto (personal fork of Fermata)
+This repository is a personal fork of [Fermata](https://github.com/AndreyPavlenko/Fermata),
+the free and open source media player written by **Andrey Pavlenko**. All credit for the
+application goes to the original author. The fork is distributed under the same
+[GPL-3.0 license](LICENSE) and its source code is public here.
+
+Changes made in this fork (November 2026):
+* The Android Auto build is named "Youssef Auto" and uses the package suffix `.youssef`,
+  so it can be installed next to the official Fermata Auto.
+* Parked-only video: on Android Auto, video is paused when the car starts moving and is
+  resumed when it is parked. Audio, screen mirroring and navigation are not affected.
+  See `fermata/src/auto/java/me/aap/fermata/auto/DrivingMonitor.java`.
+* The GitHub Actions workflow builds the arm64-v8a APK only.
+
 ## Fermata Media Player
 [![Download the latest APK](https://img.shields.io/github/v/release/AndreyPavlenko/Fermata?label=Download%20APK&logo=github&style=for-the-badge)](https://github.com/AndreyPavlenko/Fermata/releases/latest)
 

@@ -376,4 +376,6 @@
     <string name="err_failed_install_module">فشل التثبيت: %1$s</string>
     <string name="err_failed_to_download">فشل التحميل %1$s</string>
     <string name="err_no_audio_record_perm">لم يتم منح أذونات الموسيقى والصوتيات</string>
+    <string name="video_parked_only">الفيديو يعمل فقط والسيارة متوقفة. سيُستكمل عند التوقف.</string>
+    <string name="video_parked_unknown">السيارة لا ترسل حالة التوقف. تم إيقاف الفيديو للأمان.</string>
 </resources>

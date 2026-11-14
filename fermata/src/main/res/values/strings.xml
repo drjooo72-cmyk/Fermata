@@ -391,4 +391,6 @@
     <string name="err_failed_to_download">Failed to download %1$s</string>
     <string name="err_no_audio_record_perm">Audio recording permission is not granted</string>
     <string name="err_failed_start_service">Failed to start service: %s</string>
+    <string name="video_parked_only">Video plays only while the car is parked. It will resume when you park.</string>
+    <string name="video_parked_unknown">The car does not report whether it is parked. Video is disabled for safety.</string>
 </resources>

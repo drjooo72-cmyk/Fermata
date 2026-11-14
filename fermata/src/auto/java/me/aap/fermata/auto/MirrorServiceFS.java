@@ -38,10 +38,12 @@ public class MirrorServiceFS extends CarAppService {
 	public void onCreate() {
 		super.onCreate();
 		md = MirrorDisplay.get();
+		DrivingMonitor.acquire(this);
 	}
 
 	@Override
 	public void onDestroy() {
+		DrivingMonitor.release();
 		md.release();
 		md = null;
 		super.onDestroy();

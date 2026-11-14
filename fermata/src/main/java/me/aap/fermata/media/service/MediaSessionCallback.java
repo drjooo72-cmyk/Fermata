@@ -88,6 +88,7 @@ import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
 import android.view.KeyEvent;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -186,6 +187,14 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	@Nullable
 	private final AsyncQueryHandler carConnectionQuery;
 	private boolean carConnected;
+	// Parked-only video: the Android Auto driving monitor (auto/DrivingMonitor) reports here
+	// whether the car allows video. Audio is never affected.
+	public static final int VIDEO_ALLOWED = 0;
+	public static final int VIDEO_RESTRICTED_MOVING = 1;
+	public static final int VIDEO_RESTRICTED_UNKNOWN = 2;
+	private static volatile int videoRestriction = VIDEO_ALLOWED;
+	private static volatile MediaSessionCallback instance;
+	private boolean pausedByDriving;
 	private MediaEngine engine;
 	private boolean playOnPrepared;
 	private boolean playOnAudioFocus;
@@ -206,6 +215,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		this.session = session;
 		this.playbackControlPrefs = playbackControlPrefs;
 		this.handler = handler;
+		instance = this;
 		Context ctx = lib.getContext();
 
 		customRewind = new PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_RW,
@@ -282,6 +292,68 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		} else {
 			carConnectionQuery = null;
 			onCarConnection = null;
+		}
+	}
+
+	/**
+	 * Called by the Android Auto driving monitor. While restricted, video items are paused and
+	 * can not be started; a video paused this way is resumed when the restriction is lifted.
+	 */
+	public static void setVideoRestriction(int restriction) {
+		if (videoRestriction == restriction) return;
+		Log.i("Video restriction changed: ", videoRestriction, " -> ", restriction);
+		videoRestriction = restriction;
+		MediaSessionCallback cb = instance;
+		if (cb != null) cb.handler.post(cb::applyVideoRestriction);
+	}
+
+	public static boolean isVideoRestricted() {
+		return videoRestriction != VIDEO_ALLOWED;
+	}
+
+	private void applyVideoRestriction() {
+		MediaEngine eng = getEngine();
+		PlayableItem i = (eng == null) ? null : eng.getSource();
+		boolean video = (i != null) && i.isVideo();
+
+		if (isVideoRestricted()) {
+			if (video && isPlaying()) {
+				Log.i("The car is not parked - pausing video: ", i);
+				pausedByDriving = true;
+				onPause();
+				showVideoRestricted(false);
+			}
+		} else if (pausedByDriving) {
+			pausedByDriving = false;
+			if (video && (currentState.getState() == STATE_PAUSED)) {
+				Log.i("The car is parked - resuming video: ", i);
+				onPlay();
+			}
+		}
+	}
+
+	/**
+	 * @return true if the item is a video and the car is not parked, i.e. it must not be played.
+	 */
+	private boolean blockVideo(@Nullable PlayableItem i, boolean userRequest) {
+		if (!isVideoRestricted() || (i == null) || !i.isVideo()) return false;
+		Log.i("Video is not allowed, the car is not parked: ", i);
+		showVideoRestricted(userRequest);
+		return true;
+	}
+
+	private void showVideoRestricted(boolean alert) {
+		int msg = (videoRestriction == VIDEO_RESTRICTED_UNKNOWN) ? R.string.video_parked_unknown :
+				R.string.video_parked_only;
+		try {
+			Context ctx = lib.getContext().getApplicationContext();
+			Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show();
+			if (alert && BuildConfig.AUTO && (ActivityDelegate.getContextToDelegate() != null)) {
+				Context c = getContext();
+				UiUtils.showAlert(c, c.getString(msg));
+			}
+		} catch (Exception ex) {
+			Log.d(ex, "Failed to show the video restriction message");
 		}
 	}
 
@@ -473,6 +545,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		if (carConnectionQuery != null) carConnectionQuery.cancelOperation(0);
 		removeBroadcastListeners();
 		metadata = null;
+		if (instance == this) instance = null;
 	}
 
 	@Override
@@ -520,7 +593,9 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		switch (state.getState()) {
 			case STATE_NONE, STATE_STOPPED, STATE_ERROR -> {
 				return lib.getLastPlayedItem().then(this::prepareItem).then(i -> {
-					if (i != null) {
+					if (blockVideo(i, true)) {
+						return completedVoid();
+					} else if (i != null) {
 						playPreparedItem(i, lib.getLastPlayedPosition(i));
 					} else {
 						// Report it right away, rather than leaving the caller (e.g. Android Auto's autoplay) waiting
@@ -537,6 +612,10 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 				MediaEngine eng = getEngine();
 				assert (eng != null);
 				assert (eng.getSource() != null);
+				if (blockVideo(eng.getSource(), true)) {
+					pausedByDriving = true;
+					return completedVoid();
+				}
 				if (!eng.requestAudioFocus(audioManager, audioFocusReq)) {
 					Log.i("Audio focus request failed");
 					return completedVoid();
@@ -573,7 +652,9 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 				return completedNull();
 			}
 		}).then(this::prepareItem).then(pi -> {
-			if (pi != null) {
+			if (blockVideo(pi, true)) {
+				return completedVoid();
+			} else if (pi != null) {
 				long pos = (extras == null) ? 0 : extras.getLong(EXTRA_POS, 0);
 				playPreparedItem(pi, pos);
 			} else {
@@ -976,7 +1057,12 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		PlaybackControlPrefs playbackPrefs = getPlaybackControlPrefs();
 		runWithRetry(() -> setAudiEffects(engine, prefs, parentPrefs, playbackPrefs));
 
-		if (playOnPrepared) {
+		if (playOnPrepared && blockVideo(i, false)) {
+			// Started moving while the video was being prepared - keep it paused until parked
+			pausedByDriving = true;
+			setLastPlayed(i, pos);
+			setPlayingState(engine, false, pos, speed);
+		} else if (playOnPrepared) {
 			setLastPlayed(i, pos);
 			start(engine, speed);
 		} else {
@@ -986,6 +1072,12 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 
 	@Override
 	public void onEngineStarted(MediaEngine engine) {
+		if ((engine == getEngine()) && blockVideo(engine.getSource(), false)) {
+			// Started by the engine itself (e.g. from a web page) while the car is not parked
+			pausedByDriving = true;
+			onPause();
+			return;
+		}
 		engine.getPosition().and(engine.getSpeed()).main()
 				.onSuccess(h -> setPlayingState(engine, true, h.value1, h.value2));
 	}
@@ -1247,6 +1339,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	}
 
 	public void playItem(PlayableItem i, long pos) {
+		if (blockVideo(i, true)) return;
 		playerTask.cancel();
 		setLastPlayed(i, pos);
 		PlaybackStateCompat state = new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS)
@@ -1277,6 +1370,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 
 	private void playPreparedItem(MediaEngine eng, PlayableItem i, long pos, PlayableItem current,
 																long currentPos) {
+		pausedByDriving = false;
 		engine = eng = getEngineManager().createEngine(eng, i, this);
 
 		if (eng == null) {

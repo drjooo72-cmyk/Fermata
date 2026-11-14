@@ -38,6 +38,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import me.aap.fermata.BuildConfig;
+import me.aap.fermata.media.service.MediaSessionCallback;
 import me.aap.fermata.ui.activity.FermataActivity;
 import me.aap.fermata.ui.activity.MainActivityDelegate;
 import me.aap.fermata.ui.activity.MainActivityListener;
@@ -61,9 +62,31 @@ public class FermataWebView extends WebView
 	private FermataWebClient webClient;
 	private FermataChromeClient chrome;
 	private boolean keyNavigation;
+	// Parked-only video: pauses the videos on web pages while the car is not parked
+	private final Runnable pauseVideos = this::pauseVideosIfRestricted;
 
 	public FermataWebView(Context context) {
 		this(context, null);
+	}
+
+	@Override
+	protected void onAttachedToWindow() {
+		super.onAttachedToWindow();
+		if (BuildConfig.AUTO) postDelayed(pauseVideos, 1000);
+	}
+
+	@Override
+	protected void onDetachedFromWindow() {
+		removeCallbacks(pauseVideos);
+		super.onDetachedFromWindow();
+	}
+
+	private void pauseVideosIfRestricted() {
+		if (MediaSessionCallback.isVideoRestricted()) {
+			evaluateJavascript("document.querySelectorAll('video')" +
+					".forEach(function(v){if(!v.paused)v.pause();});", null);
+		}
+		postDelayed(pauseVideos, 1000);
 	}
 
 	public FermataWebView(Context context, AttributeSet attrs) {

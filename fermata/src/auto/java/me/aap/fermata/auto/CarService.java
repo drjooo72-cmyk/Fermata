@@ -21,11 +21,13 @@ public class CarService extends CarActivityService {
 	public void onCreate() {
 		Log.d("Creating CarService: " + this);
 		super.onCreate();
+		DrivingMonitor.acquire(this);
 	}
 
 	@Override
 	public void onDestroy() {
 		Log.d("Destroying CarService: " + this);
+		DrivingMonitor.release();
 		FermataMediaServiceConnection s = MainCarActivity.service;
 		if (s == null) return;
 		MainCarActivity.service = null;
