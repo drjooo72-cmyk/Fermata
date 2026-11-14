@@ -23,6 +23,8 @@ import androidx.car.app.model.CarIcon;
 import androidx.car.app.model.Template;
 import androidx.car.app.navigation.model.NavigationTemplate;
 import androidx.car.app.validation.HostValidator;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
 
 import me.aap.fermata.FermataApplication;
 import me.aap.fermata.R;
@@ -52,7 +54,7 @@ public class MirrorServiceFS extends CarAppService {
 	@NonNull
 	@Override
 	public Session onCreateSession(@NonNull SessionInfo sessionInfo) {
-		return new Session() {
+		Session session = new Session() {
 			@NonNull
 			@Override
 			public Screen onCreateScreen(@NonNull Intent intent) {
@@ -64,6 +66,22 @@ public class MirrorServiceFS extends CarAppService {
 				super.onNewIntent(intent);
 			}
 		};
+		// Car link: battery / fuel / range, see CarInfoReader
+		session.getLifecycle().addObserver(new DefaultLifecycleObserver() {
+			private Runnable stopCarInfo;
+
+			@Override
+			public void onCreate(@NonNull LifecycleOwner owner) {
+				stopCarInfo = CarInfoReader.start(session.getCarContext());
+			}
+
+			@Override
+			public void onDestroy(@NonNull LifecycleOwner owner) {
+				if (stopCarInfo != null) stopCarInfo.run();
+				stopCarInfo = null;
+			}
+		});
+		return session;
 	}
 
 	@NonNull

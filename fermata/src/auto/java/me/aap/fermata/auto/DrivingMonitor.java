@@ -1,10 +1,18 @@
 package me.aap.fermata.auto;
 
 import static android.support.car.hardware.CarSensorEvent.DRIVE_STATUS_UNRESTRICTED;
+import static android.support.car.hardware.CarSensorEvent.GEAR_DRIVE;
+import static android.support.car.hardware.CarSensorEvent.GEAR_NEUTRAL;
 import static android.support.car.hardware.CarSensorEvent.GEAR_PARK;
+import static android.support.car.hardware.CarSensorEvent.GEAR_REVERSE;
 import static android.support.car.hardware.CarSensorManager.SENSOR_RATE_NORMAL;
 import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_CAR_SPEED;
 import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_DRIVING_STATUS;
+import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_ENVIRONMENT;
+import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_FUEL_LEVEL;
+import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_NIGHT;
+import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_ODOMETER;
+import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_RPM;
 import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_GEAR;
 import static android.support.car.hardware.CarSensorManager.SENSOR_TYPE_PARKING_BRAKE;
 import static me.aap.fermata.media.service.MediaSessionCallback.VIDEO_ALLOWED;
@@ -45,7 +53,10 @@ final class DrivingMonitor extends CarConnectionCallback
 	private static final long UNKNOWN_TIMEOUT = 5000;
 	private static final int[] SENSORS =
 			{SENSOR_TYPE_DRIVING_STATUS, SENSOR_TYPE_CAR_SPEED, SENSOR_TYPE_GEAR,
-					SENSOR_TYPE_PARKING_BRAKE};
+					SENSOR_TYPE_PARKING_BRAKE,
+					// Car link only - not used for the parked-only video
+					SENSOR_TYPE_FUEL_LEVEL, SENSOR_TYPE_ODOMETER, SENSOR_TYPE_ENVIRONMENT,
+					SENSOR_TYPE_RPM, SENSOR_TYPE_NIGHT};
 	private static DrivingMonitor instance;
 
 	private final Handler handler = new Handler(Looper.getMainLooper());
@@ -88,6 +99,7 @@ final class DrivingMonitor extends CarConnectionCallback
 	private void start() {
 		if (!isActive() || (car != null)) return;
 		Log.i("Starting the driving state monitor");
+		CarState.init(ctx);
 		timedOut = false;
 		handler.removeCallbacks(unknownTimeout);
 		handler.postDelayed(unknownTimeout, UNKNOWN_TIMEOUT);
@@ -117,6 +129,7 @@ final class DrivingMonitor extends CarConnectionCallback
 		}
 
 		reset();
+		CarState.setConnected(false, null);
 		// Not connected to a car - nothing to restrict
 		MediaSessionCallback.setVideoRestriction(VIDEO_ALLOWED);
 	}
@@ -160,6 +173,7 @@ final class DrivingMonitor extends CarConnectionCallback
 			}
 
 			Log.i("Car connected. Driving state sensors: ", supported);
+			CarState.setConnected(true, supported.toString());
 			String msg = "Parked-only video: " +
 					((supported.length() == 0) ? "no driving sensors" : "sensors = " + supported);
 			try {
@@ -175,6 +189,7 @@ final class DrivingMonitor extends CarConnectionCallback
 		handler.post(() -> {
 			if (c != car) return;
 			Log.i("Car disconnected");
+			CarState.setConnected(false, null);
 			removeListeners();
 			reset();
 			if (!isActive()) return;
@@ -215,10 +230,33 @@ final class DrivingMonitor extends CarConnectionCallback
 
 	private void read(CarSensorEvent e) {
 		switch (e.sensorType) {
-			case SENSOR_TYPE_DRIVING_STATUS -> status = e.getDrivingStatusData().status;
-			case SENSOR_TYPE_CAR_SPEED -> speed = e.getCarSpeedData().carSpeed;
-			case SENSOR_TYPE_GEAR -> gear = e.getGearData().gear;
-			case SENSOR_TYPE_PARKING_BRAKE -> brake = e.getParkingBrakeData().isEngaged;
+			case SENSOR_TYPE_DRIVING_STATUS -> {
+				status = e.getDrivingStatusData().status;
+				CarState.put("driving_restricted", status != DRIVE_STATUS_UNRESTRICTED);
+			}
+			case SENSOR_TYPE_CAR_SPEED -> {
+				speed = e.getCarSpeedData().carSpeed;
+				CarState.put("speed_kmh", Math.abs(speed) * 3.6f);
+			}
+			case SENSOR_TYPE_GEAR -> {
+				gear = e.getGearData().gear;
+				CarState.put("gear", gearName(gear));
+			}
+			case SENSOR_TYPE_PARKING_BRAKE -> {
+				brake = e.getParkingBrakeData().isEngaged;
+				CarState.put("parking_brake", brake);
+			}
+			case SENSOR_TYPE_FUEL_LEVEL -> {
+				CarSensorEvent.FuelLevelData d = e.getFuelLevelData();
+				if (d.level >= 0) CarState.put("fuel_percent", d.level);
+				if (d.range >= 0) CarState.put("fuel_range_km", d.range);
+				CarState.put("fuel_low", d.lowFuelWarning);
+			}
+			case SENSOR_TYPE_ODOMETER -> CarState.put("odometer_km", e.getOdometerData().kms);
+			case SENSOR_TYPE_ENVIRONMENT ->
+					CarState.put("outside_temp_c", e.getEnvironmentData().temperature);
+			case SENSOR_TYPE_RPM -> CarState.put("rpm", e.getRpmData().rpm);
+			case SENSOR_TYPE_NIGHT -> CarState.put("night", e.getNightData().isNightMode);
 			default -> {
 			}
 		}
@@ -252,12 +290,27 @@ final class DrivingMonitor extends CarConnectionCallback
 		return brake;
 	}
 
+	private static String gearName(int g) {
+		return switch (g) {
+			case GEAR_PARK -> "P";
+			case GEAR_REVERSE -> "R";
+			case GEAR_NEUTRAL -> "N";
+			case GEAR_DRIVE -> "D";
+			default -> String.valueOf(g);
+		};
+	}
+
 	private static String name(int type) {
 		return switch (type) {
 			case SENSOR_TYPE_DRIVING_STATUS -> "status";
 			case SENSOR_TYPE_CAR_SPEED -> "speed";
 			case SENSOR_TYPE_GEAR -> "gear";
 			case SENSOR_TYPE_PARKING_BRAKE -> "brake";
+			case SENSOR_TYPE_FUEL_LEVEL -> "fuel";
+			case SENSOR_TYPE_ODOMETER -> "odometer";
+			case SENSOR_TYPE_ENVIRONMENT -> "temp";
+			case SENSOR_TYPE_RPM -> "rpm";
+			case SENSOR_TYPE_NIGHT -> "night";
 			default -> String.valueOf(type);
 		};
 	}

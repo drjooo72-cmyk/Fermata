@@ -14,6 +14,10 @@ Changes made in this fork (November 2026):
   resumed when it is parked. Audio, screen mirroring and navigation are not affected.
   See `fermata/src/auto/java/me/aap/fermata/auto/DrivingMonitor.java`.
 * The GitHub Actions workflow builds the arm64-v8a APK only.
+* Car link (read-only): the owner's own computer can read the car data reported over
+  Android Auto (battery, fuel, range, speed, gear, odometer) from the phone, over a private
+  Tailscale network and with a secret token. It can not control anything in the car. Disabled
+  unless the app is built with `-PCAR_TOKEN=...`. See `CarLinkServer.java` and `CarState.java`.
 
 ## Fermata Media Player
 [![Download the latest APK](https://img.shields.io/github/v/release/AndreyPavlenko/Fermata?label=Download%20APK&logo=github&style=for-the-badge)](https://github.com/AndreyPavlenko/Fermata/releases/latest)

@@ -65,6 +65,7 @@ android {
             resValue "string", "media_service_name", "@string/media_service_name_mobile"
             resValue "drawable", "media_service_icon", "@drawable/launcher"
             buildConfigField "boolean", 'AUTO', 'false'
+            buildConfigField "String", 'CAR_TOKEN', '""'
             buildConfigField "boolean", 'ENABLE_GS', "${gradle.ext.enableGoogleServices}"
         }
 
@@ -76,6 +77,8 @@ android {
             resValue "string", "media_service_name", "@string/media_service_name_auto"
             resValue "drawable", "media_service_icon", "@drawable/media_service"
             buildConfigField "boolean", 'AUTO', 'true'
+            // Car link: secret token for the owner's computer, empty = disabled
+            buildConfigField "String", 'CAR_TOKEN', "\"${project.getProperties().getOrDefault('CAR_TOKEN', '').replaceAll('[^A-Za-z0-9]', '')}\""
             buildConfigField "boolean", 'ENABLE_GS', "${gradle.ext.enableGoogleServices}"
 
             dependencies {
@@ -116,4 +119,5 @@ dependencies {
     implementation libs.firebaseEncoders
     implementation libs.javaxInject
     autoImplementation libs.androidxCarApp
+    autoImplementation libs.androidxCarAppProjected
 }

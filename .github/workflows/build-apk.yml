@@ -107,6 +107,7 @@ jobs:
       - name: Build APKs
         env:
           NO_GS: true
+          CAR_TOKEN: ${{ secrets.CAR_TOKEN }}
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64
@@ -115,6 +116,7 @@ jobs:
           ARGS=(--build-cache)
            [ -z "$APP_NAME" ] || ARGS+=("-PAPP_NAME=$APP_NAME")
            [ -z "$APP_ID_SFX" ] || ARGS+=("-PAPP_ID_SFX=$APP_ID_SFX")
+           [ -z "$CAR_TOKEN" ] || ARGS+=("-PCAR_TOKEN=$CAR_TOKEN")
            ./gradlew fermata:packageAutoReleaseUniversalApk -PABI=arm64-v8a "${ARGS[@]}"
           mv $out/*.apk dist/arm64/
 
