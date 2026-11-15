@@ -46,6 +46,10 @@ import me.aap.utils.log.Log;
 final class RadarAlerts implements LocationListener {
 	private static final String ASSET = "radars.csv";
 	private static final String MY_FILE = "my_radars.csv";
+	private static final String CHECKPOINT_FILE = "my_checkpoints.csv";
+	// A checkpoint (mobile camera or police) is kept for 3 hours
+	private static final long CHECKPOINT_TTL = 3L * 3600_000;
+	private static final float CHECKPOINT_UNMARK_DIST = 150f;
 	// A camera is "ahead" when it is within this angle of the driving direction
 	private static final float AHEAD_ANGLE = 35f;
 	// Below this speed (m/s, ~11 km/h) nothing is spoken
@@ -103,6 +107,7 @@ final class RadarAlerts implements LocationListener {
 		new Handler(Looper.getMainLooper()).post(() -> {
 			if (instance == null) instance = new RadarAlerts(c);
 			MediaSessionCallback.radarMarker = RadarAlerts::markHere;
+			MediaSessionCallback.checkpointMarker = RadarAlerts::checkpointHere;
 			instance.listen();
 		});
 	}
@@ -113,6 +118,7 @@ final class RadarAlerts implements LocationListener {
 	static void stop() {
 		new Handler(Looper.getMainLooper()).post(() -> {
 			MediaSessionCallback.radarMarker = null;
+			MediaSessionCallback.checkpointMarker = null;
 			if (instance != null) instance.unlisten();
 		});
 	}
@@ -134,6 +140,13 @@ final class RadarAlerts implements LocationListener {
 		new Handler(Looper.getMainLooper()).post(() -> {
 			RadarAlerts r = instance;
 			if (r != null) r.mark();
+		});
+	}
+
+	static void checkpointHere() {
+		new Handler(Looper.getMainLooper()).post(() -> {
+			RadarAlerts r = instance;
+			if (r != null) r.markCheckpoint();
 		});
 	}
 
@@ -243,6 +256,8 @@ final class RadarAlerts implements LocationListener {
 		double lon = l.getLongitude();
 		double cos = Math.cos(Math.toRadians(lat));
 
+		if (removeExpired(now)) saveCheckpoints();
+
 		Radar next = null;
 		float nextDist = Float.MAX_VALUE;
 
@@ -269,6 +284,10 @@ final class RadarAlerts implements LocationListener {
 			announced.put(next, now);
 			if (onlySpeeding && (next.limit > 0) && !speeding) return;
 			int meters = Math.max(50, Math.round(nextDist / 50f) * 50);
+			if (next.expires != 0) {
+				CarAlerts.say(ctx.getString(R.string.car_say_checkpoint, meters));
+				return;
+			}
 			CarAlerts.say((next.limit > 0) ? ctx.getString(R.string.car_say_radar_limit, meters,
 					next.limit) : ctx.getString(R.string.car_say_radar, meters));
 			return;
@@ -299,7 +318,7 @@ final class RadarAlerts implements LocationListener {
 		Radar near = null;
 		float nearDist = Float.MAX_VALUE;
 		for (Radar r : radars) {
-			if (!r.mine) continue;
+			if (!r.mine || (r.expires != 0)) continue;
 			float[] d = new float[1];
 			Location.distanceBetween(l.getLatitude(), l.getLongitude(), r.lat, r.lon, d);
 			if ((d[0] < UNMARK_DIST) && (d[0] < nearDist)) {
@@ -362,6 +381,95 @@ final class RadarAlerts implements LocationListener {
 			} catch (Throwable ex) {
 				Log.e(ex, "Failed to load the marked speed cameras");
 			}
+		}
+
+		loadCheckpoints();
+	}
+
+	private void loadCheckpoints() {
+		File f = new File(ctx.getFilesDir(), CHECKPOINT_FILE);
+		if (!f.isFile()) return;
+		long now = System.currentTimeMillis();
+		try (BufferedReader r = new BufferedReader(new FileReader(f))) {
+			for (String line = r.readLine(); line != null; line = r.readLine()) {
+				if (line.startsWith("#")) continue;
+				String[] s = line.trim().split(",");
+				if (s.length < 3) continue;
+				try {
+					long exp = Long.parseLong(s[2].trim());
+					if ((exp <= now) || (exp > now + CHECKPOINT_TTL)) continue;
+					radars.add(new Radar(Double.parseDouble(s[0].trim()), Double.parseDouble(s[1].trim()),
+							0, true, exp));
+				} catch (NumberFormatException ignore) {
+				}
+			}
+		} catch (Throwable ex) {
+			Log.e(ex, "Failed to load the checkpoints");
+		}
+	}
+
+	private boolean removeExpired(long now) {
+		boolean removed = false;
+		for (java.util.Iterator<Radar> it = radars.iterator(); it.hasNext(); ) {
+			Radar r = it.next();
+			if ((r.expires != 0) && (r.expires <= now)) {
+				it.remove();
+				announced.remove(r);
+				warned.remove(r);
+				removed = true;
+			}
+		}
+		return removed;
+	}
+
+	private void markCheckpoint() {
+		Location l = last;
+		long now = System.currentTimeMillis();
+		if ((l == null) || ((now - l.getTime()) > 30_000)) {
+			if (!listening) listen();
+			toast(R.string.car_radar_no_location);
+			return;
+		}
+		removeExpired(now);
+
+		Radar near = null;
+		float nearDist = Float.MAX_VALUE;
+		for (Radar r : radars) {
+			if (r.expires == 0) continue;
+			float[] d = new float[1];
+			Location.distanceBetween(l.getLatitude(), l.getLongitude(), r.lat, r.lon, d);
+			if ((d[0] < CHECKPOINT_UNMARK_DIST) && (d[0] < nearDist)) {
+				nearDist = d[0];
+				near = r;
+			}
+		}
+
+		if (near != null) {
+			radars.remove(near);
+			announced.remove(near);
+			warned.remove(near);
+			CarAlerts.say(ctx.getString(R.string.car_say_checkpoint_removed));
+		} else {
+			Radar r = new Radar(l.getLatitude(), l.getLongitude(), 0, true, now + CHECKPOINT_TTL);
+			radars.add(r);
+			// Do not announce the checkpoint that was just marked
+			announced.put(r, now);
+			CarAlerts.say(ctx.getString(R.string.car_say_checkpoint_marked));
+		}
+
+		saveCheckpoints();
+	}
+
+	private void saveCheckpoints() {
+		File f = new File(ctx.getFilesDir(), CHECKPOINT_FILE);
+		try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.US_ASCII)) {
+			w.write("# Checkpoints marked with the Checkpoint button. Columns: lat,lon,expires (ms)\n");
+			for (Radar r : radars) {
+				if (r.expires == 0) continue;
+				w.write(String.format(Locale.US, "%.6f,%.6f,%d\n", r.lat, r.lon, r.expires));
+			}
+		} catch (Throwable ex) {
+			Log.e(ex, "Failed to save the checkpoints");
 		}
 	}
 
@@ -502,7 +610,7 @@ final class RadarAlerts implements LocationListener {
 		try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.US_ASCII)) {
 			w.write("# Speed cameras marked with the Radar here button. Columns: lat,lon,max speed\n");
 			for (Radar r : radars) {
-				if (!r.mine) continue;
+				if (!r.mine || (r.expires != 0)) continue;
 				w.write(String.format(Locale.US, "%.6f,%.6f,%d\n", r.lat, r.lon, r.limit));
 			}
 		} catch (Throwable ex) {
@@ -540,12 +648,19 @@ final class RadarAlerts implements LocationListener {
 		final double lon;
 		final int limit;
 		final boolean mine;
+		// 0 for a camera, the expiry time for a temporary checkpoint
+		final long expires;
 
 		Radar(double lat, double lon, int limit, boolean mine) {
+			this(lat, lon, limit, mine, 0);
+		}
+
+		Radar(double lat, double lon, int limit, boolean mine, long expires) {
 			this.lat = lat;
 			this.lon = lon;
 			this.limit = limit;
 			this.mine = mine;
+			this.expires = expires;
 		}
 	}
 }

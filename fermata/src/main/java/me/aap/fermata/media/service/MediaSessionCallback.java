@@ -159,6 +159,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 			"me.aap.fermata.action.shuffle.disable";
 	private static final String CUSTOM_ACTION_FAVORITES_ADD = "me.aap.fermata.action.favorites.add";
 	private static final String CUSTOM_ACTION_RADAR = "me.aap.fermata.action.radar.mark";
+	private static final String CUSTOM_ACTION_CHECKPOINT = "me.aap.fermata.action.checkpoint.mark";
 	private static final String CUSTOM_ACTION_FAVORITES_REMOVE =
 			"me.aap.fermata.action.favorites.remove";
 	private static final long SUPPORTED_ACTIONS =
@@ -184,6 +185,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	private final PlaybackStateCompat.CustomAction customFavoritesAdd;
 	private final PlaybackStateCompat.CustomAction customFavoritesRemove;
 	private final PlaybackStateCompat.CustomAction customRadar;
+	private final PlaybackStateCompat.CustomAction customCheckpoint;
 	private final BroadcastReceiver onNoisy;
 	@Nullable
 	private final BroadcastReceiver onCarConnection;
@@ -197,6 +199,11 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	 * connected to the car.
 	 */
 	public static volatile Runnable radarMarker;
+	/**
+	 * The temporary "Checkpoint" button (a mobile camera or police checkpoint, kept for a few
+	 * hours). Set while the phone is connected to the car.
+	 */
+	public static volatile Runnable checkpointMarker;
 	public static final int VIDEO_ALLOWED = 0;
 	public static final int VIDEO_RESTRICTED_MOVING = 1;
 	public static final int VIDEO_RESTRICTED_UNKNOWN = 2;
@@ -248,6 +255,8 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 						ctx.getString(R.string.favorites_remove), R.drawable.favorite_filled).build();
 		customRadar = new PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_RADAR,
 				ctx.getString(R.string.car_radar_mark), R.drawable.radar).build();
+		customCheckpoint = new PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHECKPOINT,
+				ctx.getString(R.string.car_checkpoint_mark), R.drawable.checkpoint).build();
 
 		currentState = new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS).build();
 		setPlaybackState(currentState);
@@ -901,6 +910,10 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 				Runnable r = radarMarker;
 				if (r != null) r.run();
 			}
+			case CUSTOM_ACTION_CHECKPOINT -> {
+				Runnable r = checkpointMarker;
+				if (r != null) r.run();
+			}
 		}
 	}
 
@@ -1448,7 +1461,10 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		PlaybackStateCompat.Builder b = new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS)
 				.setState(state, position, speed).setActiveQueueItemId(qid);
 		// Shown first, so that it is visible on the car screen (Youssef Auto)
-		if (showRadarButton()) b.addCustomAction(customRadar);
+		if (showRadarButton()) {
+			b.addCustomAction(customRadar);
+			if (checkpointMarker != null) b.addCustomAction(customCheckpoint);
+		}
 		return b.addCustomAction(customRewind)
 				.addCustomAction(customFastForward)
 				.addCustomAction(repeat ? customRepeatDisable : customRepeatEnable)

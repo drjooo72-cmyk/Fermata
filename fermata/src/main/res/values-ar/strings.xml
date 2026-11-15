@@ -413,6 +413,7 @@
     <string name="car_radar_button">زرار رادار هنا</string>
     <string name="car_radar_button_sub">بيظهر مع أزرار التشغيل. اضغطه عند رادار جديد عشان يتحفظ، أو عند رادار محفوظ عشان يتشال</string>
     <string name="car_radar_mark">رادار هنا</string>
+    <string name="car_checkpoint_mark">كمين</string>
     <string name="car_radar_auto_update">حدّث الرادارات من النت لوحدها</string>
     <string name="car_radar_radarbot">سيب رادار بوت ينبّه لو متسطب</string>
     <string name="car_radar_radarbot_sub">هنا هينبّه بس على الرادارات اللي انت علّمتها، عشان ماتسمعش تنبيهين</string>
@@ -423,4 +424,7 @@
     <string name="car_say_radar_slow">هدّي السرعة، المسموح %1$d</string>
     <string name="car_say_radar_marked">اتحفظ الرادار</string>
     <string name="car_say_radar_removed">اتشال الرادار</string>
+    <string name="car_say_checkpoint">كمين بعد %1$d متر</string>
+    <string name="car_say_checkpoint_marked">اتحفظ الكمين لمدة 3 ساعات</string>
+    <string name="car_say_checkpoint_removed">اتشال الكمين</string>
 </resources>

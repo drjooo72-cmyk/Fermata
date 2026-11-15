@@ -428,6 +428,7 @@
     <string name="car_radar_button">Radar here button</string>
     <string name="car_radar_button_sub">Shown in the player controls. Press it at a new camera to save it, or at a saved one to remove it</string>
     <string name="car_radar_mark">Radar here</string>
+    <string name="car_checkpoint_mark">Checkpoint</string>
     <string name="car_radar_auto_update">Update the cameras from the internet</string>
     <string name="car_radar_radarbot">Let Radarbot alert if it is installed</string>
     <string name="car_radar_radarbot_sub">Only the cameras you marked here are spoken, so you do not hear two alerts</string>
@@ -438,4 +439,7 @@
     <string name="car_say_radar_slow">Slow down, the limit is %1$d</string>
     <string name="car_say_radar_marked">Speed camera saved</string>
     <string name="car_say_radar_removed">Speed camera removed</string>
+    <string name="car_say_checkpoint">Checkpoint in %1$d meters</string>
+    <string name="car_say_checkpoint_marked">Checkpoint saved for 3 hours</string>
+    <string name="car_say_checkpoint_removed">Checkpoint removed</string>
 </resources>
