@@ -31,6 +31,8 @@
         android:required="true" />
 
     <queries>
+        <package android:name="com.vialsoft.radarbot_free" />
+        <package android:name="com.vialsoft.radarbot" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
         </intent>

@@ -101,6 +101,7 @@ public interface MainActivityPrefs
 	Pref<BooleanSupplier> CAR_RADAR_ONLY_SPEEDING = Pref.b("CAR_RADAR_ONLY_SPEEDING", false);
 	Pref<BooleanSupplier> CAR_RADAR_BUTTON = Pref.b("CAR_RADAR_BUTTON", true);
 	Pref<BooleanSupplier> CAR_RADAR_AUTO_UPDATE = Pref.b("CAR_RADAR_AUTO_UPDATE", true);
+	Pref<BooleanSupplier> CAR_RADAR_RADARBOT = Pref.b("CAR_RADAR_RADARBOT", true);
 
 	static MainActivityPrefs get() {
 		return MainActivityDelegate.Prefs.instance;

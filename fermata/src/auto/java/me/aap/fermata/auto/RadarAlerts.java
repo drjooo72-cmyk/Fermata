@@ -5,6 +5,7 @@ import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -64,6 +65,9 @@ final class RadarAlerts implements LocationListener {
 	private static final long RETRY_AFTER = 6L * 3600_000;
 	// A downloaded list with fewer cameras is treated as broken and ignored
 	private static final int MIN_ONLINE = 100;
+	// Radarbot (free and paid). When one is installed it alerts for the known cameras
+	private static final String[] RADARBOT = {"com.vialsoft.radarbot_free", "com.vialsoft.radarbot"};
+	private static final long RADARBOT_CHECK = 60_000;
 	// Egypt. Only this box is sent to the server, never the car location.
 	private static final String QUERY = "[out:csv(::lat,::lon,maxspeed;false;\",\")][timeout:120];" +
 			"node[\"highway\"=\"speed_camera\"](21.9,24.6,31.8,37.0);out;";
@@ -84,6 +88,8 @@ final class RadarAlerts implements LocationListener {
 	private Location last;
 	private Location prev;
 	private boolean listening;
+	private long radarbotChecked;
+	private boolean radarbot;
 
 	private RadarAlerts(Context ctx) {
 		this.ctx = ctx.getApplicationContext();
@@ -231,6 +237,8 @@ final class RadarAlerts implements LocationListener {
 		float alertDist = Math.min(1500f, Math.max(dist, speed * 12f));
 		boolean onlySpeeding = p.getBooleanPref(MainActivityPrefs.CAR_RADAR_ONLY_SPEEDING);
 		long now = System.currentTimeMillis();
+		// Radarbot alerts for the known cameras, so only the ones marked here are spoken
+		boolean onlyMine = p.getBooleanPref(MainActivityPrefs.CAR_RADAR_RADARBOT) && radarbot(now);
 		double lat = l.getLatitude();
 		double lon = l.getLongitude();
 		double cos = Math.cos(Math.toRadians(lat));
@@ -239,6 +247,7 @@ final class RadarAlerts implements LocationListener {
 		float nextDist = Float.MAX_VALUE;
 
 		for (Radar r : radars) {
+			if (onlyMine && !r.mine) continue;
 			// Fast rough distance first
 			double dy = Math.toRadians(r.lat - lat) * EARTH_R;
 			double dx = Math.toRadians(r.lon - lon) * EARTH_R * cos;
@@ -508,6 +517,22 @@ final class RadarAlerts implements LocationListener {
 			} catch (Throwable ignore) {
 			}
 		});
+	}
+
+	private boolean radarbot(long now) {
+		if ((now - radarbotChecked) < RADARBOT_CHECK) return radarbot;
+		radarbotChecked = now;
+		boolean found = false;
+		PackageManager pm = ctx.getPackageManager();
+		for (String pkg : RADARBOT) {
+			try {
+				if (pm.getApplicationInfo(pkg, 0).enabled) found = true;
+			} catch (PackageManager.NameNotFoundException ignore) {
+			}
+		}
+		if (found != radarbot) CarState.put("radar_alerts_by", found ? "radarbot" : "app");
+		radarbot = found;
+		return found;
 	}
 
 	private static final class Radar {

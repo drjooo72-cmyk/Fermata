@@ -783,6 +783,13 @@ public class SettingsFragment extends MainActivityFragment
 		});
 		radar.addBooleanPref(o -> {
 			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_RADARBOT;
+			o.title = R.string.car_radar_radarbot;
+			o.subtitle = R.string.car_radar_radarbot_sub;
+			o.visibility = radarOn.copy();
+		});
+		radar.addBooleanPref(o -> {
+			o.store = p;
 			o.pref = MainActivityPrefs.CAR_RADAR_BUTTON;
 			o.title = R.string.car_radar_button;
 			o.subtitle = R.string.car_radar_button_sub;
