@@ -401,7 +401,7 @@
     <string name="car_moving_speed">Moving speed (km/h)</string>
     <string name="car_moving_speed_sub">Above this speed the car counts as moving</string>
     <string name="car_resume_delay">Wait before showing video (seconds)</string>
-    <string name="car_resume_delay_sub">The car must stand still this long, so short stops at traffic lights don't start the video</string>
+    <string name="car_resume_delay_sub">The car must stand still this long, so short stops at traffic lights do not start the video</string>
     <string name="car_auto_resume">Resume the video when the car stops</string>
     <string name="car_no_sensors">If the car does not report its state</string>
     <string name="car_no_sensors_block">Disable video (safe)</string>
