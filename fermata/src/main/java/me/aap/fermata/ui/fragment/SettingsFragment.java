@@ -788,6 +788,13 @@ public class SettingsFragment extends MainActivityFragment
 			o.subtitle = R.string.car_radar_button_sub;
 			o.visibility = radarOn.copy();
 		});
+		radar.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_AUTO_UPDATE;
+			o.title = R.string.car_radar_auto_update;
+			o.subtitle = R.string.car_radar_auto_update_sub;
+			o.visibility = radarOn.copy();
+		});
 
 		var link = car.subSet(o -> o.title = R.string.car_link);
 		link.addBooleanPref(o -> {

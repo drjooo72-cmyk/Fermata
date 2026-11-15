@@ -56,6 +56,23 @@ final class RadarAlerts implements LocationListener {
 	// A marked camera closer than this to the current location is removed instead of added
 	private static final float UNMARK_DIST = 80f;
 	private static final double EARTH_R = 6_371_000d;
+	// The camera list downloaded from OpenStreetMap, replaces the one in the assets
+	private static final String ONLINE_FILE = "radars_online.csv";
+	// Download a fresh list when the current one is older than this
+	private static final long UPDATE_EVERY = 7L * 24 * 3600_000;
+	// Wait this long before trying again after a failed download
+	private static final long RETRY_AFTER = 6L * 3600_000;
+	// A downloaded list with fewer cameras is treated as broken and ignored
+	private static final int MIN_ONLINE = 100;
+	// Egypt. Only this box is sent to the server, never the car location.
+	private static final String QUERY = "[out:csv(::lat,::lon,maxspeed;false;\",\")][timeout:120];" +
+			"node[\"highway\"=\"speed_camera\"](21.9,24.6,31.8,37.0);out;";
+	private static final String[] SERVERS = {
+			"https://overpass-api.de/api/interpreter",
+			"https://overpass.private.coffee/api/interpreter",
+			"https://maps.mail.ru/osm/tools/overpass/api/interpreter"};
+	private static long lastAttempt;
+	private static boolean updating;
 	private static RadarAlerts instance;
 
 	private final Handler handler = new Handler(Looper.getMainLooper());
@@ -132,6 +149,7 @@ final class RadarAlerts implements LocationListener {
 			unlisten();
 			return;
 		}
+		maybeUpdate();
 		if (listening) return;
 
 		if (ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PERMISSION_GRANTED) {
@@ -299,12 +317,34 @@ final class RadarAlerts implements LocationListener {
 
 	private void load() {
 		radars.clear();
-		try (Reader in = new InputStreamReader(ctx.getAssets().open(ASSET),
-				StandardCharsets.US_ASCII)) {
-			read(in, false);
-		} catch (Throwable ex) {
-			Log.e(ex, "Failed to load the speed cameras");
+		announced.clear();
+		warned.clear();
+		File online = new File(ctx.getFilesDir(), ONLINE_FILE);
+		boolean loaded = false;
+
+		if (online.isFile()) {
+			try (Reader in = new FileReader(online)) {
+				read(in, false);
+				loaded = radars.size() >= MIN_ONLINE;
+			} catch (Throwable ex) {
+				Log.e(ex, "Failed to load the downloaded speed cameras");
+			}
+			if (!loaded) radars.clear();
 		}
+
+		if (!loaded) {
+			try (Reader in = new InputStreamReader(ctx.getAssets().open(ASSET),
+					StandardCharsets.US_ASCII)) {
+				read(in, false);
+			} catch (Throwable ex) {
+				Log.e(ex, "Failed to load the speed cameras");
+			}
+		}
+
+		CarState.put("radar_count", radars.size());
+		CarState.put("radar_list_date", loaded ?
+				String.format(Locale.US, "%tF (downloaded)", online.lastModified()) :
+				"2026-11-15 (built in)");
 
 		File f = new File(ctx.getFilesDir(), MY_FILE);
 		if (f.isFile()) {
@@ -324,12 +364,128 @@ final class RadarAlerts implements LocationListener {
 			String[] s = line.split(",");
 			if (s.length < 2) continue;
 			try {
-				int limit = (s.length > 2) ? Integer.parseInt(s[2].trim()) : 0;
-				radars.add(new Radar(Double.parseDouble(s[0].trim()), Double.parseDouble(s[1].trim()),
-						limit, mine));
+				double lat = Double.parseDouble(s[0].trim());
+				double lon = Double.parseDouble(s[1].trim());
+				if ((lat < -90) || (lat > 90) || (lon < -180) || (lon > 180)) continue;
+				radars.add(new Radar(lat, lon, (s.length > 2) ? limit(s[2]) : 0, mine));
 			} catch (NumberFormatException ignore) {
 			}
 		}
+	}
+
+	/**
+	 * The leading number of an OpenStreetMap max speed, e.g. "80" or "60 mph". 0 if unknown.
+	 */
+	private static int limit(String s) {
+		s = s.trim();
+		int n = 0;
+		int i = 0;
+		for (; (i < s.length()) && (i < 3) && Character.isDigit(s.charAt(i)); i++) {
+			n = n * 10 + (s.charAt(i) - '0');
+		}
+		if (n == 0) return 0;
+		if (s.substring(i).trim().startsWith("mph")) n = Math.round(n * 1.609f);
+		return n;
+	}
+
+	/**
+	 * Downloads a fresh camera list from OpenStreetMap once a week, in the background. The new
+	 * list is used only if it looks complete; otherwise the current one is kept.
+	 */
+	private void maybeUpdate() {
+		try {
+			if (!prefs().getBooleanPref(MainActivityPrefs.CAR_RADAR_AUTO_UPDATE)) return;
+		} catch (Throwable ex) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		File online = new File(ctx.getFilesDir(), ONLINE_FILE);
+		if (updating || ((now - lastAttempt) < RETRY_AFTER)) return;
+		if (online.isFile() && ((now - online.lastModified()) < UPDATE_EVERY)) return;
+		updating = true;
+		lastAttempt = now;
+
+		Thread t = new Thread(() -> {
+			boolean ok = false;
+			try {
+				ok = download(online);
+			} catch (Throwable ex) {
+				Log.d(ex, "Speed camera list download failed");
+			}
+			boolean done = ok;
+			handler.post(() -> {
+				updating = false;
+				if (done) load();
+			});
+		}, "RadarListUpdate");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	private boolean download(File dest) throws Exception {
+		String body = "data=" + java.net.URLEncoder.encode(QUERY, "UTF-8");
+
+		for (String server : SERVERS) {
+			java.net.HttpURLConnection c = null;
+			try {
+				c = (java.net.HttpURLConnection) new java.net.URL(server).openConnection();
+				c.setConnectTimeout(20_000);
+				c.setReadTimeout(150_000);
+				c.setRequestMethod("POST");
+				c.setDoOutput(true);
+				// A generic name - nothing about the owner is sent
+				c.setRequestProperty("User-Agent", "car-radar-list/1.0");
+				c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				c.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+				if (c.getResponseCode() != 200) {
+					Log.i("Speed camera list: HTTP ", c.getResponseCode(), " from ", server);
+					continue;
+				}
+
+				StringBuilder sb = new StringBuilder(32 * 1024);
+				int rows = 0;
+				sb.append("# Speed cameras in Egypt. Data (c) OpenStreetMap contributors, ODbL 1.0 - ")
+						.append("https://www.openstreetmap.org/copyright\n");
+				try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(),
+						StandardCharsets.UTF_8))) {
+					for (String line = r.readLine(); line != null; line = r.readLine()) {
+						String[] s = line.split(",");
+						if (s.length < 2) continue;
+						try {
+							double lat = Double.parseDouble(s[0].trim());
+							double lon = Double.parseDouble(s[1].trim());
+							int lim = (s.length > 2) ? limit(s[2]) : 0;
+							sb.append(String.format(Locale.US, "%.6f,%.6f,%d\n", lat, lon, lim));
+							rows++;
+						} catch (NumberFormatException ignore) {
+						}
+					}
+				}
+
+				if (rows < MIN_ONLINE) {
+					Log.i("Speed camera list: only ", rows, " cameras from ", server, " - ignored");
+					continue;
+				}
+
+				File tmp = new File(dest.getPath() + ".tmp");
+				try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp),
+						StandardCharsets.US_ASCII)) {
+					w.write(sb.toString());
+				}
+				if (!tmp.renameTo(dest)) {
+					//noinspection ResultOfMethodCallIgnored
+					tmp.delete();
+					return false;
+				}
+				Log.i("Speed camera list updated from ", server, ". Cameras: ", rows);
+				return true;
+			} catch (Throwable ex) {
+				Log.i("Speed camera list: ", server, " failed: ", ex);
+			} finally {
+				if (c != null) c.disconnect();
+			}
+		}
+		return false;
 	}
 
 	private void saveMine() {

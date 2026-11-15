@@ -413,6 +413,8 @@
     <string name="car_radar_button">زرار رادار هنا</string>
     <string name="car_radar_button_sub">بيظهر مع أزرار التشغيل. اضغطه عند رادار جديد عشان يتحفظ، أو عند رادار محفوظ عشان يتشال</string>
     <string name="car_radar_mark">رادار هنا</string>
+    <string name="car_radar_auto_update">حدّث الرادارات من النت لوحدها</string>
+    <string name="car_radar_auto_update_sub">مرة كل أسبوع من OpenStreetMap. بيتبعت حدود مصر بس، ومكانك مش بيتبعت أبداً</string>
     <string name="car_radar_no_location">تنبيه الرادار محتاج إذن المكان. خليه السماح طول الوقت من إعدادات التطبيق</string>
     <string name="car_say_radar">رادار بعد %1$d متر</string>
     <string name="car_say_radar_limit">رادار بعد %1$d متر، السرعة المسموحة %2$d</string>

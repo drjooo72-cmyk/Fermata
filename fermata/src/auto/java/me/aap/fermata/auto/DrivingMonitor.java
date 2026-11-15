@@ -290,7 +290,10 @@ final class DrivingMonitor extends CarConnectionCallback
 	}
 
 	private void onPreferenceChanged(PreferenceStore store, List<PreferenceStore.Pref<?>> prefs) {
-		if (prefs.contains(MainActivityPrefs.CAR_RADAR_ALERT)) RadarAlerts.settingsChanged();
+		if (prefs.contains(MainActivityPrefs.CAR_RADAR_ALERT) ||
+				prefs.contains(MainActivityPrefs.CAR_RADAR_AUTO_UPDATE)) {
+			RadarAlerts.settingsChanged();
+		}
 		if (prefs.contains(MainActivityPrefs.CAR_VIDEO_MODE) ||
 				prefs.contains(MainActivityPrefs.CAR_MOVING_SPEED) ||
 				prefs.contains(MainActivityPrefs.CAR_RESUME_DELAY) ||
