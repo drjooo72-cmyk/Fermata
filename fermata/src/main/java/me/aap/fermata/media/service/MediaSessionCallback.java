@@ -126,6 +126,7 @@ import me.aap.fermata.media.pref.PlayableItemPrefs;
 import me.aap.fermata.media.pref.PlaybackControlPrefs;
 import me.aap.fermata.media.sub.SubGrid;
 import me.aap.fermata.media.sub.Subtitles;
+import me.aap.fermata.ui.activity.MainActivityPrefs;
 import me.aap.fermata.ui.view.VideoView;
 import me.aap.utils.async.FutureSupplier;
 import me.aap.utils.collection.CollectionUtils;
@@ -325,7 +326,8 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 			}
 		} else if (pausedByDriving) {
 			pausedByDriving = false;
-			if (video && (currentState.getState() == STATE_PAUSED)) {
+			if (video && (currentState.getState() == STATE_PAUSED) &&
+					MainActivityPrefs.get().getBooleanPref(MainActivityPrefs.CAR_AUTO_RESUME)) {
 				Log.i("The car is parked - resuming video: ", i);
 				onPlay();
 			}

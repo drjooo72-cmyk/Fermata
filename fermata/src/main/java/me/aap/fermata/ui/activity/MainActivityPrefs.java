@@ -79,6 +79,24 @@ public interface MainActivityPrefs
 	Pref<DoubleSupplier> TEXT_ICON_SIZE_AA = AUTO ? Pref.f("TEXT_ICON_SIZE_AA", 1f) : null;
 	Pref<BooleanSupplier> GRID_VIEW_AA = AUTO ? Pref.b("GRID_VIEW_AA", false) : null;
 
+	// Car settings (added in the "Youssef Auto" fork). Used only by the auto flavor.
+	int CAR_VIDEO_PARKED_ONLY = 0;
+	int CAR_VIDEO_ALWAYS = 1;
+	int CAR_NO_SENSORS_BLOCK = 0;
+	int CAR_NO_SENSORS_ALLOW = 1;
+	Pref<IntSupplier> CAR_VIDEO_MODE = Pref.i("CAR_VIDEO_MODE", CAR_VIDEO_PARKED_ONLY);
+	Pref<IntSupplier> CAR_MOVING_SPEED = Pref.i("CAR_MOVING_SPEED", 5);
+	Pref<IntSupplier> CAR_RESUME_DELAY = Pref.i("CAR_RESUME_DELAY", 3);
+	Pref<BooleanSupplier> CAR_AUTO_RESUME = Pref.b("CAR_AUTO_RESUME", true);
+	Pref<IntSupplier> CAR_NO_SENSORS = Pref.i("CAR_NO_SENSORS", CAR_NO_SENSORS_BLOCK);
+	Pref<BooleanSupplier> CAR_SHOW_STATUS = Pref.b("CAR_SHOW_STATUS", true);
+	Pref<BooleanSupplier> CAR_SPEED_ALERT = Pref.b("CAR_SPEED_ALERT", false);
+	Pref<IntSupplier> CAR_SPEED_LIMIT = Pref.i("CAR_SPEED_LIMIT", 120);
+	Pref<BooleanSupplier> CAR_LOW_ENERGY_ALERT = Pref.b("CAR_LOW_ENERGY_ALERT", true);
+	Pref<IntSupplier> CAR_LOW_ENERGY_PERCENT = Pref.i("CAR_LOW_ENERGY_PERCENT", 15);
+	Pref<BooleanSupplier> CAR_LINK_ENABLED = Pref.b("CAR_LINK_ENABLED", true);
+	Pref<BooleanSupplier> CAR_LINK_LOCATION = Pref.b("CAR_LINK_LOCATION", true);
+
 	static MainActivityPrefs get() {
 		return MainActivityDelegate.Prefs.instance;
 	}

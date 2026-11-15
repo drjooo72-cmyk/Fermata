@@ -28,8 +28,12 @@ import android.support.car.hardware.CarSensorEvent;
 import android.support.car.hardware.CarSensorManager;
 import android.widget.Toast;
 
+import java.util.List;
+
 import me.aap.fermata.media.service.MediaSessionCallback;
+import me.aap.fermata.ui.activity.MainActivityPrefs;
 import me.aap.utils.log.Log;
+import me.aap.utils.pref.PreferenceStore;
 
 /**
  * Parked-only video (added in the "Youssef Auto" fork of Fermata).
@@ -42,13 +46,15 @@ import me.aap.utils.log.Log;
  * </ul>
  * If the car reports nothing at all, video stays disabled (fail-safe). Audio, the screen
  * mirroring and navigation are never affected.
+ * <p>
+ * All of this can be changed in the app settings (Settings - Car): video while moving, the
+ * moving speed, the wait before the video is shown after stopping, and what to do when the car
+ * reports nothing.
  *
  * @author Youssef Auto fork
  */
 final class DrivingMonitor extends CarConnectionCallback
 		implements CarSensorManager.OnSensorChangedListener {
-	// ~5 km/h, tolerates sensor noise when standing still
-	private static final float MOVING_SPEED = 1.4f;
 	// Time given to the car to report its state before the video gets disabled
 	private static final long UNKNOWN_TIMEOUT = 5000;
 	private static final int[] SENSORS =
@@ -61,6 +67,10 @@ final class DrivingMonitor extends CarConnectionCallback
 
 	private final Handler handler = new Handler(Looper.getMainLooper());
 	private final Runnable unknownTimeout = this::onUnknownTimeout;
+	private final Runnable allowVideo = this::onAllowVideo;
+	// Kept here - the preference store holds weak references to the listeners
+	private final PreferenceStore.Listener prefListener = this::onPreferenceChanged;
+	private boolean allowPending;
 	private final Context ctx;
 	private int refs;
 	private Car car;
@@ -100,6 +110,7 @@ final class DrivingMonitor extends CarConnectionCallback
 		if (!isActive() || (car != null)) return;
 		Log.i("Starting the driving state monitor");
 		CarState.init(ctx);
+		MainActivityPrefs.get().addBroadcastListener(prefListener);
 		timedOut = false;
 		handler.removeCallbacks(unknownTimeout);
 		handler.postDelayed(unknownTimeout, UNKNOWN_TIMEOUT);
@@ -117,6 +128,9 @@ final class DrivingMonitor extends CarConnectionCallback
 		if (isActive()) return;
 		Log.i("Stopping the driving state monitor");
 		handler.removeCallbacks(unknownTimeout);
+		handler.removeCallbacks(allowVideo);
+		allowPending = false;
+		MainActivityPrefs.get().removeBroadcastListener(prefListener);
 		removeListeners();
 
 		if (car != null) {
@@ -177,7 +191,9 @@ final class DrivingMonitor extends CarConnectionCallback
 			String msg = "Parked-only video: " +
 					((supported.length() == 0) ? "no driving sensors" : "sensors = " + supported);
 			try {
-				Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show();
+				if (prefs().getBooleanPref(MainActivityPrefs.CAR_SHOW_STATUS)) {
+					Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show();
+				}
 			} catch (Throwable ignore) {
 			}
 			update();
@@ -267,23 +283,78 @@ final class DrivingMonitor extends CarConnectionCallback
 		update();
 	}
 
+	private static MainActivityPrefs prefs() {
+		return MainActivityPrefs.get();
+	}
+
+	private void onPreferenceChanged(PreferenceStore store, List<PreferenceStore.Pref<?>> prefs) {
+		if (prefs.contains(MainActivityPrefs.CAR_VIDEO_MODE) ||
+				prefs.contains(MainActivityPrefs.CAR_MOVING_SPEED) ||
+				prefs.contains(MainActivityPrefs.CAR_RESUME_DELAY) ||
+				prefs.contains(MainActivityPrefs.CAR_NO_SENSORS)) {
+			handler.post(this::update);
+		}
+	}
+
 	private void update() {
 		if (!isActive()) return;
+
+		if (prefs().getIntPref(MainActivityPrefs.CAR_VIDEO_MODE) == MainActivityPrefs.CAR_VIDEO_ALWAYS) {
+			// Chosen by the user in the settings
+			setRestriction(VIDEO_ALLOWED, false);
+			return;
+		}
+
 		boolean known = (status != null) || (speed != null) || (gear != null) || (brake != null);
 
 		if (known) {
-			MediaSessionCallback.setVideoRestriction(
-					isParked() ? VIDEO_ALLOWED : VIDEO_RESTRICTED_MOVING);
+			if (isParked()) setRestriction(VIDEO_ALLOWED, true);
+			else setRestriction(VIDEO_RESTRICTED_MOVING, false);
 		} else if (timedOut) {
-			// Fail-safe: no way to tell if the car is parked
-			MediaSessionCallback.setVideoRestriction(VIDEO_RESTRICTED_UNKNOWN);
+			// No way to tell if the car is parked - disabled unless the user allowed it
+			if (prefs().getIntPref(MainActivityPrefs.CAR_NO_SENSORS) ==
+					MainActivityPrefs.CAR_NO_SENSORS_ALLOW) {
+				setRestriction(VIDEO_ALLOWED, false);
+			} else {
+				setRestriction(VIDEO_RESTRICTED_UNKNOWN, false);
+			}
 		}
+	}
+
+	/**
+	 * @param delayed wait the configured time before allowing the video, so that a short stop
+	 *                (e.g. at traffic lights) does not start it.
+	 */
+	private void setRestriction(int restriction, boolean delayed) {
+		if (restriction != VIDEO_ALLOWED) {
+			handler.removeCallbacks(allowVideo);
+			allowPending = false;
+			MediaSessionCallback.setVideoRestriction(restriction);
+			return;
+		}
+
+		int delay = delayed ? Math.max(0, prefs().getIntPref(MainActivityPrefs.CAR_RESUME_DELAY)) : 0;
+		if ((delay == 0) || !MediaSessionCallback.isVideoRestricted()) {
+			handler.removeCallbacks(allowVideo);
+			allowPending = false;
+			MediaSessionCallback.setVideoRestriction(VIDEO_ALLOWED);
+		} else if (!allowPending) {
+			allowPending = true;
+			handler.postDelayed(allowVideo, delay * 1000L);
+		}
+	}
+
+	private void onAllowVideo() {
+		if (!allowPending) return;
+		allowPending = false;
+		if (isActive()) MediaSessionCallback.setVideoRestriction(VIDEO_ALLOWED);
 	}
 
 	private boolean isParked() {
 		// The head unit says that video (or anything else) is restricted
 		if ((status != null) && (status != DRIVE_STATUS_UNRESTRICTED)) return false;
-		if ((speed != null) && (Math.abs(speed) > MOVING_SPEED)) return false;
+		float movingSpeed = Math.max(1, prefs().getIntPref(MainActivityPrefs.CAR_MOVING_SPEED)) / 3.6f;
+		if ((speed != null) && (Math.abs(speed) > movingSpeed)) return false;
 		if ((status != null) || (speed != null)) return true;
 		// Neither the driving status nor the speed is reported - rely on the gear or parking brake
 		if (gear != null) return gear == GEAR_PARK;

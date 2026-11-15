@@ -299,6 +299,8 @@ public class SettingsFragment extends MainActivityFragment
 		PreferenceSet sub1;
 		PreferenceSet sub2;
 
+		if (BuildConfig.AUTO) addCarPrefs(a, set);
+
 		sub1 = set.subSet(o -> o.title = R.string.interface_prefs);
 
 		if (BuildConfig.AUTO && a.isCarActivityNotMirror()) {
@@ -667,6 +669,108 @@ public class SettingsFragment extends MainActivityFragment
 				a.fireBroadcastEvent(FRAGMENT_CONTENT_CHANGED);
 			}
 		};
+	}
+
+	/**
+	 * Car settings (added in the "Youssef Auto" fork): parked-only video, voice alerts and the
+	 * read-only car link.
+	 */
+	private void addCarPrefs(MainActivityDelegate a, PreferenceSet set) {
+		var p = a.getPrefs();
+		var car = set.subSet(o -> o.title = R.string.car_prefs);
+
+		var video = car.subSet(o -> o.title = R.string.car_video);
+		video.addListPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_VIDEO_MODE;
+			o.title = R.string.car_video_mode;
+			o.subtitle = R.string.string_format;
+			o.formatSubtitle = true;
+			o.values = new int[]{R.string.car_video_parked_only, R.string.car_video_always};
+		});
+		var parkedOnly = new PrefCondition<>(p, MainActivityPrefs.CAR_VIDEO_MODE,
+				pr -> p.getIntPref(pr) == MainActivityPrefs.CAR_VIDEO_PARKED_ONLY);
+		video.addIntPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_MOVING_SPEED;
+			o.title = R.string.car_moving_speed;
+			o.subtitle = R.string.car_moving_speed_sub;
+			o.seekMin = 1;
+			o.seekMax = 40;
+			o.visibility = parkedOnly.copy();
+		});
+		video.addIntPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RESUME_DELAY;
+			o.title = R.string.car_resume_delay;
+			o.subtitle = R.string.car_resume_delay_sub;
+			o.seekMin = 0;
+			o.seekMax = 30;
+			o.visibility = parkedOnly.copy();
+		});
+		video.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_AUTO_RESUME;
+			o.title = R.string.car_auto_resume;
+			o.visibility = parkedOnly.copy();
+		});
+		video.addListPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_NO_SENSORS;
+			o.title = R.string.car_no_sensors;
+			o.subtitle = R.string.string_format;
+			o.formatSubtitle = true;
+			o.values = new int[]{R.string.car_no_sensors_block, R.string.car_no_sensors_allow};
+			o.visibility = parkedOnly.copy();
+		});
+		video.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_SHOW_STATUS;
+			o.title = R.string.car_show_status;
+		});
+
+		var alerts = car.subSet(o -> o.title = R.string.car_alerts);
+		alerts.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_SPEED_ALERT;
+			o.title = R.string.car_speed_alert;
+		});
+		alerts.addIntPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_SPEED_LIMIT;
+			o.title = R.string.car_speed_limit;
+			o.seekMin = 40;
+			o.seekMax = 200;
+			o.seekScale = 10;
+			o.visibility = PrefCondition.create(p, MainActivityPrefs.CAR_SPEED_ALERT);
+		});
+		alerts.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_LOW_ENERGY_ALERT;
+			o.title = R.string.car_low_energy_alert;
+		});
+		alerts.addIntPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_LOW_ENERGY_PERCENT;
+			o.title = R.string.car_low_energy_percent;
+			o.seekMin = 5;
+			o.seekMax = 50;
+			o.visibility = PrefCondition.create(p, MainActivityPrefs.CAR_LOW_ENERGY_ALERT);
+		});
+
+		var link = car.subSet(o -> o.title = R.string.car_link);
+		link.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_LINK_ENABLED;
+			o.title = R.string.car_link_enabled;
+			o.subtitle = R.string.car_link_enabled_sub;
+		});
+		link.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_LINK_LOCATION;
+			o.title = R.string.car_link_location;
+			o.visibility = PrefCondition.create(p, MainActivityPrefs.CAR_LINK_ENABLED);
+		});
 	}
 
 	private void addAAInterface(MainActivityDelegate a, PreferenceSet ps) {

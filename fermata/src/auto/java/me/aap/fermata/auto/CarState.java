@@ -15,7 +15,10 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import me.aap.fermata.BuildConfig;
+import me.aap.fermata.ui.activity.MainActivityPrefs;
+import me.aap.utils.function.BooleanSupplier;
 import me.aap.utils.log.Log;
+import me.aap.utils.pref.PreferenceStore.Pref;
 
 /**
  * Car link (added in the "Youssef Auto" fork of Fermata).
@@ -41,6 +44,7 @@ final class CarState {
 	 */
 	static synchronized void init(Context c) {
 		if (ctx == null) ctx = c.getApplicationContext();
+		CarAlerts.init(ctx);
 		if (server != null) return;
 		String token = BuildConfig.CAR_TOKEN;
 		if ((token == null) || (token.length() < 16)) return;
@@ -56,16 +60,28 @@ final class CarState {
 
 	static synchronized void setConnected(boolean c, String supportedSensors) {
 		connected = c;
+		CarAlerts.reset();
 		if (c) {
 			connectedTime = System.currentTimeMillis();
 			sensors = (supportedSensors == null) ? "" : supportedSensors;
 		}
 	}
 
-	static synchronized void put(String key, Object value) {
+	static void put(String key, Object value) {
 		if (value == null) return;
-		values.put(key, value);
-		times.put(key, System.currentTimeMillis());
+		synchronized (CarState.class) {
+			values.put(key, value);
+			times.put(key, System.currentTimeMillis());
+		}
+		CarAlerts.onValue(key, value);
+	}
+
+	private static boolean pref(Pref<BooleanSupplier> p) {
+		try {
+			return MainActivityPrefs.get().getBooleanPref(p);
+		} catch (Throwable ex) {
+			return true;
+		}
 	}
 
 	static synchronized String toJson() {
@@ -74,6 +90,12 @@ final class CarState {
 		b.append('{');
 		field(b, "app", "Youssef Auto").append(',');
 		field(b, "time", now).append(',');
+		if (!pref(MainActivityPrefs.CAR_LINK_ENABLED)) {
+			// Turned off in the app settings
+			field(b, "link_disabled", true);
+			b.append('}');
+			return b.toString();
+		}
 		field(b, "connected", connected).append(',');
 		field(b, "connected_time", (connectedTime == 0) ? null : connectedTime).append(',');
 		field(b, "sensors", sensors).append(',');
@@ -125,7 +147,7 @@ final class CarState {
 		Location best = null;
 
 		try {
-			if ((ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PERMISSION_GRANTED)
+			if (pref(MainActivityPrefs.CAR_LINK_LOCATION) && (ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PERMISSION_GRANTED)
 					|| (ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
 					PERMISSION_GRANTED)) {
 				LocationManager lm = ctx.getSystemService(LocationManager.class);
