@@ -158,6 +158,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	private static final String CUSTOM_ACTION_SHUFFLE_DISABLE =
 			"me.aap.fermata.action.shuffle.disable";
 	private static final String CUSTOM_ACTION_FAVORITES_ADD = "me.aap.fermata.action.favorites.add";
+	private static final String CUSTOM_ACTION_RADAR = "me.aap.fermata.action.radar.mark";
 	private static final String CUSTOM_ACTION_FAVORITES_REMOVE =
 			"me.aap.fermata.action.favorites.remove";
 	private static final long SUPPORTED_ACTIONS =
@@ -182,6 +183,7 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	private final PlaybackStateCompat.CustomAction customShuffleDisable;
 	private final PlaybackStateCompat.CustomAction customFavoritesAdd;
 	private final PlaybackStateCompat.CustomAction customFavoritesRemove;
+	private final PlaybackStateCompat.CustomAction customRadar;
 	private final BroadcastReceiver onNoisy;
 	@Nullable
 	private final BroadcastReceiver onCarConnection;
@@ -190,6 +192,11 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 	private boolean carConnected;
 	// Parked-only video: the Android Auto driving monitor (auto/DrivingMonitor) reports here
 	// whether the car allows video. Audio is never affected.
+	/**
+	 * The "Radar here" button of the speed camera alerts (Youssef Auto). Set while the phone is
+	 * connected to the car.
+	 */
+	public static volatile Runnable radarMarker;
 	public static final int VIDEO_ALLOWED = 0;
 	public static final int VIDEO_RESTRICTED_MOVING = 1;
 	public static final int VIDEO_RESTRICTED_UNKNOWN = 2;
@@ -239,6 +246,8 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		customFavoritesRemove =
 				new PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_FAVORITES_REMOVE,
 						ctx.getString(R.string.favorites_remove), R.drawable.favorite_filled).build();
+		customRadar = new PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_RADAR,
+				ctx.getString(R.string.car_radar_mark), R.drawable.radar).build();
 
 		currentState = new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS).build();
 		setPlaybackState(currentState);
@@ -888,6 +897,10 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 			case CUSTOM_ACTION_SHUFFLE_DISABLE -> shuffleEnableDisable(false);
 			case CUSTOM_ACTION_FAVORITES_ADD -> favoriteAddRemove(true);
 			case CUSTOM_ACTION_FAVORITES_REMOVE -> favoriteAddRemove(false);
+			case CUSTOM_ACTION_RADAR -> {
+				Runnable r = radarMarker;
+				if (r != null) r.run();
+			}
 		}
 	}
 
@@ -1432,12 +1445,26 @@ public class MediaSessionCallback extends MediaSessionCompat.Callback
 		BrowsableItemPrefs p = i.getParent().getPrefs();
 		boolean repeat = p.getRepeatPref();
 		boolean shuffle = p.getShufflePref();
-		return new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS)
-				.setState(state, position, speed).setActiveQueueItemId(qid).addCustomAction(customRewind)
+		PlaybackStateCompat.Builder b = new PlaybackStateCompat.Builder().setActions(SUPPORTED_ACTIONS)
+				.setState(state, position, speed).setActiveQueueItemId(qid);
+		// Shown first, so that it is visible on the car screen (Youssef Auto)
+		if (showRadarButton()) b.addCustomAction(customRadar);
+		return b.addCustomAction(customRewind)
 				.addCustomAction(customFastForward)
 				.addCustomAction(repeat ? customRepeatDisable : customRepeatEnable)
 				.addCustomAction(shuffle ? customShuffleDisable : customShuffleEnable)
 				.addCustomAction(i.isFavoriteItem() ? customFavoritesRemove : customFavoritesAdd).build();
+	}
+
+	private static boolean showRadarButton() {
+		if (radarMarker == null) return false;
+		try {
+			MainActivityPrefs p = MainActivityPrefs.get();
+			return p.getBooleanPref(MainActivityPrefs.CAR_RADAR_ALERT) &&
+					p.getBooleanPref(MainActivityPrefs.CAR_RADAR_BUTTON);
+		} catch (Throwable ex) {
+			return false;
+		}
 	}
 
 	private void setPlaybackState(PlaybackStateCompat state) {

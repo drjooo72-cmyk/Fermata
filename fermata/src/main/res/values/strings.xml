@@ -420,4 +420,18 @@
     <string name="car_say_fuel">Fuel is low, %1$d percent</string>
     <string name="car_say_battery">Battery is low, %1$d percent</string>
     <string name="car_say_low">Low fuel warning</string>
+    <string name="car_radar">Speed cameras</string>
+    <string name="car_radar_alert">Speed camera alerts</string>
+    <string name="car_radar_alert_sub">Cameras in Egypt from OpenStreetMap, plus the ones you mark</string>
+    <string name="car_radar_distance">Alert distance (meters)</string>
+    <string name="car_radar_only_speeding">Alert only when driving faster than the limit</string>
+    <string name="car_radar_button">Radar here button</string>
+    <string name="car_radar_button_sub">Shown in the player controls. Press it at a new camera to save it, or at a saved one to remove it</string>
+    <string name="car_radar_mark">Radar here</string>
+    <string name="car_radar_no_location">Speed camera alerts need the location permission. Set it to Allow all the time in the app settings</string>
+    <string name="car_say_radar">Speed camera in %1$d meters</string>
+    <string name="car_say_radar_limit">Speed camera in %1$d meters. Limit %2$d</string>
+    <string name="car_say_radar_slow">Slow down, the limit is %1$d</string>
+    <string name="car_say_radar_marked">Speed camera saved</string>
+    <string name="car_say_radar_removed">Speed camera removed</string>
 </resources>

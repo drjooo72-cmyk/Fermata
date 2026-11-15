@@ -96,6 +96,10 @@ public interface MainActivityPrefs
 	Pref<IntSupplier> CAR_LOW_ENERGY_PERCENT = Pref.i("CAR_LOW_ENERGY_PERCENT", 15);
 	Pref<BooleanSupplier> CAR_LINK_ENABLED = Pref.b("CAR_LINK_ENABLED", true);
 	Pref<BooleanSupplier> CAR_LINK_LOCATION = Pref.b("CAR_LINK_LOCATION", true);
+	Pref<BooleanSupplier> CAR_RADAR_ALERT = Pref.b("CAR_RADAR_ALERT", true);
+	Pref<IntSupplier> CAR_RADAR_DISTANCE = Pref.i("CAR_RADAR_DISTANCE", 500);
+	Pref<BooleanSupplier> CAR_RADAR_ONLY_SPEEDING = Pref.b("CAR_RADAR_ONLY_SPEEDING", false);
+	Pref<BooleanSupplier> CAR_RADAR_BUTTON = Pref.b("CAR_RADAR_BUTTON", true);
 
 	static MainActivityPrefs get() {
 		return MainActivityDelegate.Prefs.instance;

@@ -758,6 +758,37 @@ public class SettingsFragment extends MainActivityFragment
 			o.visibility = PrefCondition.create(p, MainActivityPrefs.CAR_LOW_ENERGY_ALERT);
 		});
 
+		var radar = car.subSet(o -> o.title = R.string.car_radar);
+		radar.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_ALERT;
+			o.title = R.string.car_radar_alert;
+			o.subtitle = R.string.car_radar_alert_sub;
+		});
+		var radarOn = PrefCondition.create(p, MainActivityPrefs.CAR_RADAR_ALERT);
+		radar.addIntPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_DISTANCE;
+			o.title = R.string.car_radar_distance;
+			o.seekMin = 200;
+			o.seekMax = 1500;
+			o.seekScale = 100;
+			o.visibility = radarOn.copy();
+		});
+		radar.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_ONLY_SPEEDING;
+			o.title = R.string.car_radar_only_speeding;
+			o.visibility = radarOn.copy();
+		});
+		radar.addBooleanPref(o -> {
+			o.store = p;
+			o.pref = MainActivityPrefs.CAR_RADAR_BUTTON;
+			o.title = R.string.car_radar_button;
+			o.subtitle = R.string.car_radar_button_sub;
+			o.visibility = radarOn.copy();
+		});
+
 		var link = car.subSet(o -> o.title = R.string.car_link);
 		link.addBooleanPref(o -> {
 			o.store = p;

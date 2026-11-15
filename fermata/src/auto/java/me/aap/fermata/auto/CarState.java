@@ -147,9 +147,10 @@ final class CarState {
 		Location best = null;
 
 		try {
-			if (pref(MainActivityPrefs.CAR_LINK_LOCATION) && (ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PERMISSION_GRANTED)
-					|| (ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-					PERMISSION_GRANTED)) {
+			if (pref(MainActivityPrefs.CAR_LINK_LOCATION) &&
+					((ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PERMISSION_GRANTED) ||
+							(ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+									PERMISSION_GRANTED))) {
 				LocationManager lm = ctx.getSystemService(LocationManager.class);
 				if (lm != null) {
 					for (String p : lm.getProviders(true)) {

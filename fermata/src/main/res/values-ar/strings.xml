@@ -405,4 +405,18 @@
     <string name="car_say_fuel">البنزين قرب يخلص، فاضل %1$d في المية</string>
     <string name="car_say_battery">البطارية قربت تخلص، فاضل %1$d في المية</string>
     <string name="car_say_low">البنزين قرب يخلص</string>
+    <string name="car_radar">الرادارات</string>
+    <string name="car_radar_alert">نبّهني قبل الرادار</string>
+    <string name="car_radar_alert_sub">رادارات مصر من خرائط OpenStreetMap، والرادارات اللي إنت بتعلّمها</string>
+    <string name="car_radar_distance">نبّهني قبلها بكام متر</string>
+    <string name="car_radar_only_speeding">نبّهني بس لو سرعتي أعلى من المسموح</string>
+    <string name="car_radar_button">زرار رادار هنا</string>
+    <string name="car_radar_button_sub">بيظهر مع أزرار التشغيل. اضغطه عند رادار جديد عشان يتحفظ، أو عند رادار محفوظ عشان يتشال</string>
+    <string name="car_radar_mark">رادار هنا</string>
+    <string name="car_radar_no_location">تنبيه الرادار محتاج إذن المكان. خليه السماح طول الوقت من إعدادات التطبيق</string>
+    <string name="car_say_radar">رادار بعد %1$d متر</string>
+    <string name="car_say_radar_limit">رادار بعد %1$d متر، السرعة المسموحة %2$d</string>
+    <string name="car_say_radar_slow">هدّي السرعة، المسموح %1$d</string>
+    <string name="car_say_radar_marked">اتحفظ الرادار</string>
+    <string name="car_say_radar_removed">اتشال الرادار</string>
 </resources>

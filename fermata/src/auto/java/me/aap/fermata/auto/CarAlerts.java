@@ -106,7 +106,7 @@ final class CarAlerts {
 		}
 	}
 
-	private static void say(String text) {
+	static void say(String text) {
 		Log.i("Car alert: ", text);
 		if (tts == null) {
 			pending = text;

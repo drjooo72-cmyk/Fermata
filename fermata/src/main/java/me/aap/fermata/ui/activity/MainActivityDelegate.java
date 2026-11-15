@@ -1037,6 +1037,11 @@ public class MainActivityDelegate extends ActivityDelegate
 		if (VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE) {
 			perms.add(permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK);
 		}
+		if (AUTO) {
+			// Speed camera alerts and the car link (Youssef Auto)
+			perms.add(permission.ACCESS_COARSE_LOCATION);
+			perms.add(permission.ACCESS_FINE_LOCATION);
+		}
 		return perms.toArray(new String[0]);
 	}
 

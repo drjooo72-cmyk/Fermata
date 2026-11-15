@@ -110,6 +110,7 @@ final class DrivingMonitor extends CarConnectionCallback
 		if (!isActive() || (car != null)) return;
 		Log.i("Starting the driving state monitor");
 		CarState.init(ctx);
+		RadarAlerts.start(ctx);
 		MainActivityPrefs.get().addBroadcastListener(prefListener);
 		timedOut = false;
 		handler.removeCallbacks(unknownTimeout);
@@ -131,6 +132,7 @@ final class DrivingMonitor extends CarConnectionCallback
 		handler.removeCallbacks(allowVideo);
 		allowPending = false;
 		MainActivityPrefs.get().removeBroadcastListener(prefListener);
+		RadarAlerts.stop();
 		removeListeners();
 
 		if (car != null) {
@@ -288,6 +290,7 @@ final class DrivingMonitor extends CarConnectionCallback
 	}
 
 	private void onPreferenceChanged(PreferenceStore store, List<PreferenceStore.Pref<?>> prefs) {
+		if (prefs.contains(MainActivityPrefs.CAR_RADAR_ALERT)) RadarAlerts.settingsChanged();
 		if (prefs.contains(MainActivityPrefs.CAR_VIDEO_MODE) ||
 				prefs.contains(MainActivityPrefs.CAR_MOVING_SPEED) ||
 				prefs.contains(MainActivityPrefs.CAR_RESUME_DELAY) ||
