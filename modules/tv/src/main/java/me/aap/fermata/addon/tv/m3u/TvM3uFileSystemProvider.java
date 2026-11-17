@@ -14,6 +14,7 @@ import static me.aap.fermata.addon.tv.m3u.TvM3uFile.LOGO_URL;
 import static me.aap.fermata.vfs.m3u.M3uFile.NAME;
 import static me.aap.fermata.vfs.m3u.M3uFile.URL;
 import static me.aap.utils.async.Completed.completedNull;
+import static me.aap.utils.async.Completed.failed;
 import static me.aap.utils.net.http.HttpFileDownloader.AGENT;
 import static me.aap.utils.net.http.HttpFileDownloader.RESP_TIMEOUT;
 
@@ -48,6 +49,19 @@ public class TvM3uFileSystemProvider extends M3uFileSystemProvider {
 			if (!ok) return completedNull();
 			return load(ps, TvM3uFileSystem.getInstance()).cast();
 		});
+	}
+
+	/**
+	 * Creates a TV source without asking the user (Youssef Auto IPTV preset).
+	 */
+	public FutureSupplier<TvM3uFile> create(String name, String url) {
+		BasicPreferenceStore ps = new BasicPreferenceStore();
+		try (PreferenceStore.Edit e = ps.editPreferenceStore()) {
+			e.setStringPref(NAME, name);
+			e.setStringPref(URL, url);
+		}
+		if (!validate(ps)) return failed(new IllegalArgumentException("Invalid TV source"));
+		return load(ps, TvM3uFileSystem.getInstance()).cast();
 	}
 
 	public FutureSupplier<Boolean> edit(MainActivityDelegate a, TvM3uFile f) {

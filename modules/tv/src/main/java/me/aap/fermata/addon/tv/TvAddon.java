@@ -47,7 +47,12 @@ public class TvAddon implements MediaLibAddon {
 	}
 
 	public TvRootItem getRootItem(DefaultMediaLib lib) {
-		if ((root == null) || (root.getLib() != lib)) root = new TvRootItem(lib);
+		if ((root == null) || (root.getLib() != lib)) {
+			root = new TvRootItem(lib);
+			TvRootItem r = root;
+			// Youssef Auto: add the owner's IPTV subscription on the first run
+			new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> IptvPreset.attach(r));
+		}
 		return root;
 	}
 

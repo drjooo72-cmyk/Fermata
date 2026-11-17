@@ -66,6 +66,7 @@ android {
             resValue "drawable", "media_service_icon", "@drawable/launcher"
             buildConfigField "boolean", 'AUTO', 'false'
             buildConfigField "String", 'CAR_TOKEN', '""'
+            buildConfigField "String", 'IPTV_ACCOUNT', '""'
             buildConfigField "boolean", 'ENABLE_GS', "${gradle.ext.enableGoogleServices}"
         }
 
@@ -79,6 +80,8 @@ android {
             buildConfigField "boolean", 'AUTO', 'true'
             // Car link: secret token for the owner's computer, empty = disabled
             buildConfigField "String", 'CAR_TOKEN', "\"${project.getProperties().getOrDefault('CAR_TOKEN', '').replaceAll('[^A-Za-z0-9]', '')}\""
+            // IPTV: base64 of host, user and password (one per line) from a private CI secret, empty = none
+            buildConfigField "String", 'IPTV_ACCOUNT', "\"${project.getProperties().getOrDefault('IPTV_ACCOUNT', '').replaceAll('[^A-Za-z0-9+/=]', '')}\""
             buildConfigField "boolean", 'ENABLE_GS', "${gradle.ext.enableGoogleServices}"
 
             dependencies {

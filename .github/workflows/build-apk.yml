@@ -108,6 +108,7 @@ jobs:
         env:
           NO_GS: true
           CAR_TOKEN: ${{ secrets.CAR_TOKEN }}
+          IPTV_ACCOUNT: ${{ secrets.IPTV_ACCOUNT }}
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64
@@ -117,6 +118,7 @@ jobs:
            [ -z "$APP_NAME" ] || ARGS+=("-PAPP_NAME=$APP_NAME")
            [ -z "$APP_ID_SFX" ] || ARGS+=("-PAPP_ID_SFX=$APP_ID_SFX")
            [ -z "$CAR_TOKEN" ] || ARGS+=("-PCAR_TOKEN=$CAR_TOKEN")
+           [ -z "$IPTV_ACCOUNT" ] || ARGS+=("-PIPTV_ACCOUNT=$IPTV_ACCOUNT")
            ./gradlew fermata:packageAutoReleaseUniversalApk -PABI=arm64-v8a "${ARGS[@]}"
           mv $out/*.apk dist/arm64/
 
