@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      share:
+        description: 'Build a copy to share: no car key and no IPTV account inside'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -109,11 +114,13 @@ jobs:
           NO_GS: true
           CAR_TOKEN: ${{ secrets.CAR_TOKEN }}
           IPTV_ACCOUNT: ${{ secrets.IPTV_ACCOUNT }}
+          SHARE: ${{ inputs.share }}
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64
           echo "App name: $APP_NAME"
           echo "Package suffix: $APP_ID_SFX"
+          if [ "$SHARE" = "true" ]; then CAR_TOKEN=; IPTV_ACCOUNT=; echo "Share build: no private values"; fi
           ARGS=(--build-cache)
            [ -z "$APP_NAME" ] || ARGS+=("-PAPP_NAME=$APP_NAME")
            [ -z "$APP_ID_SFX" ] || ARGS+=("-PAPP_ID_SFX=$APP_ID_SFX")
