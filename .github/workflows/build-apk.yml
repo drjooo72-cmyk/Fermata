@@ -9,6 +9,10 @@ on:
         description: 'Build a copy to share: no car key and no IPTV account inside'
         type: boolean
         default: false
+      light:
+        description: 'Light build: no speech-to-text and no translation add-ons'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -115,6 +119,7 @@ jobs:
           CAR_TOKEN: ${{ secrets.CAR_TOKEN }}
           IPTV_ACCOUNT: ${{ secrets.IPTV_ACCOUNT }}
           SHARE: ${{ inputs.share }}
+          LIGHT: ${{ inputs.light }}
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64
@@ -126,6 +131,7 @@ jobs:
            [ -z "$APP_ID_SFX" ] || ARGS+=("-PAPP_ID_SFX=$APP_ID_SFX")
            [ -z "$CAR_TOKEN" ] || ARGS+=("-PCAR_TOKEN=$CAR_TOKEN")
            [ -z "$IPTV_ACCOUNT" ] || ARGS+=("-PIPTV_ACCOUNT=$IPTV_ACCOUNT")
+           [ "$LIGHT" != "true" ] || ARGS+=("-PSKIP_MODULES=whisper,opusmt,mlkit")
            ./gradlew fermata:packageAutoReleaseUniversalApk -PABI=arm64-v8a "${ARGS[@]}"
           mv $out/*.apk dist/arm64/
 

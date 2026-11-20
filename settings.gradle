@@ -29,8 +29,11 @@ include ':fermata'
 include ':utils'
 project(':utils').projectDir = file('depends/utils')
 
+// Youssef Auto: -PSKIP_MODULES=whisper,opusmt,mlkit builds a light APK without those add-ons
+def skipModules = (gradle.startParameter.projectProperties.get('SKIP_MODULES') ?: '').split(',').collect { it.trim() }
 file('modules').eachDir {
     def name = ':' + it.name
+    if (skipModules.contains(it.name)) return
     if ((':gdrive' == name) && !gradle.ext.enableGoogleServices) return
     gradle.ext.modules.add(name)
     include name
